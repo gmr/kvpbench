@@ -85,10 +85,23 @@ def main():
     log_format = "%(asctime)-15s %(message)s"
     logging.basicConfig(format=log_format, level=logging.DEBUG)
 
+
+    # Get our parameters for couchdb
+    if options.dbtype == 'couchdb':
+        username = getpass.getuser()
+        print 'CouchDB Connection Information (Empty defaults to localhost:5984)'
+
+        args = {}
+        args['host'] = raw_input('Host: ')
+        args['port'] = raw_input('Port: ')
+
+        # Import our mongo adapter
+        import adapters.couchdb as adapter
+
     # Get our parameters for mongodb
     if options.dbtype == 'mongodb':
         username = getpass.getuser()
-        print 'MongoDB Connection Information (Empty defaults to localhost/27017)'
+        print 'MongoDB Connection Information (Empty defaults to localhost:27017)'
 
         args = {}
         args['host'] = raw_input('Host: ')

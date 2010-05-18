@@ -2,8 +2,13 @@ KVPBench is a simple benchmark utility to compare data loading and random reads 
 
 Requirements
 ------------
+
 Python 2.6
 
-For CouchDB support: couchdb-python
+For Cassandra support:
+For CouchDB support: httplib2
 For MongoDB support: pymongo
 For PostgreSQL support: psycopg2
+For Project Voldemort support: 
+For Redis support:
+For Tokyo Tyrant support:
