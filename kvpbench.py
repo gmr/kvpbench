@@ -30,11 +30,15 @@ import sys
 import time
 
 databases = ['cassandra', 'couchdb', 'mongodb', 'pgsql', 'redis', 'tokyotyrant']
+timings = []
 
+def bench_results(results):
+    global timings
+    timings.append(results)
 
 def main():
     
-    usage = "usage: %s -c <configfile> [options]" % __appname__
+    usage = "usage: %s -d datafile [options]" % __appname__
     version_string = "%%prog %s" % __version__
     description = "Database Benchmark Utility"
     
@@ -54,6 +58,9 @@ def main():
     parser.add_option("-l", "--load", action="store_true", dest="load", default=False,
                       help="Perform the data load test")                  
 
+    parser.add_option("-o", "--operations", action="store", dest="operations", type="int",
+                      default=10000, help="Number of operations to test")
+
     parser.add_option("-d", "--data", action="store", dest="data",
                       help="Specify the CSV file to load")                  
     
@@ -70,7 +77,7 @@ def main():
         parser.print_help()
         sys.exit()
         
-    if options.load and not options.data:
+    if not options.data:
         print "\nError: you must specify a data file to load (hint: look in data dir)\n"
         parser.print_help()
         sys.exit()
@@ -112,19 +119,33 @@ def main():
             
     # Create our sub-processes
     if options.bench:
-
-        # Queue for sharing data
-        q = multiprocessing.Queue()
+        
+        # Add our queue and keys
+        args['keys'] = core.data.get_keys(options.data, options.operations)
 
         # Loop through and spawn sub-processes to do the actual benching
-        for p in xrange(0, options.threads):
-            args['q'] = q
-            p = multiprocessing.Process(target=adapter.bench, kwargs=args)
-            p.start()
-            p.join()
+        processes = []
+        logging.debug('Starting a benchmark pool with %i members' % options.threads)
+        pool = multiprocessing.Pool(processes=int(options.threads))
 
-        while not q.empty():
-            print q.get()
+        # Loop through and kick of the right number of async workers
+        async_result = []
+        for x in xrange(0, options.threads):
+            async_result.append(pool.apply_async(adapter.bench, kwds=args, callback=bench_results))
+
+        pool.close()
+        
+        # Wait for everyone to finish
+        pool.join()    
+
+        x = 0
+        for result in async_result:
+            if result.successful():
+                x += 1
+            
+        # Print the results
+        print '%i successful parallel workers. %i workers ended in error' % (x, options.threads - x)
+        print core.bench.aggregate(timings)
 
 if __name__ == '__main__':
     main()

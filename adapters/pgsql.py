@@ -6,6 +6,7 @@ import core.data
 import hashlib
 import logging
 import psycopg2
+import random
 import time
 
 def connect(host, port, user, name, password):
@@ -24,8 +25,23 @@ def connect(host, port, user, name, password):
     cursor = pgsql.cursor()
     return cursor
 
-def bench(host, port, user, name, password, q):
-    q.put({'time': time.time()})
+def bench(host, port, user, name, password, keys):
+
+    cursor = connect(host, port, user, name, password)
+
+    queries = ["SELECT * FROM kvpbench WHERE pkey = '%s'",
+               "UPDATE kvpbench SET datedecision = datedecision || ' KVPUPDATE' WHERE pkey = '%s'",
+               "DELETE FROM kvpbench WHERE pkey = '%s'"]
+
+    logging.info('Starting Random Workload')
+    bid = core.bench.start('Random Workload')
+    for key in keys:
+        sql = queries[random.randint(0, 2)]
+        cursor.execute(sql % key)
+    core.bench.end(bid)
+
+    return core.bench.get()
+
 
 def load(host, port, user, name, password, csvfile):
 
@@ -47,7 +63,6 @@ def load(host, port, user, name, password, csvfile):
         sql = 'CREATE TABLE kvpbench (pkey TEXT PRIMARY KEY, %s TEXT);' % ( ' TEXT, '.join(csv.fieldnames) )
         logging.debug(sql)
         cursor.execute(sql)    
-
 
     # Define our SQL statement
     sql = "INSERT INTO kvpbench VALUES(%%(pkey)s, %%(%s)s)" % ')s,%('.join(csv.fieldnames)
