@@ -29,7 +29,7 @@ import optparse
 import sys
 import time
 
-databases = ['cassandra', 'couchdb', 'mongodb', 'pgsql', 'redis', 'tokyotyrant']
+databases = ['cassandra', 'couchdb', 'mongodb', 'pgsql', 'pgsqlkv', 'redis', 'tokyotyrant']
 timings = []
 
 def bench_results(results):
@@ -85,6 +85,18 @@ def main():
     log_format = "%(asctime)-15s %(message)s"
     logging.basicConfig(format=log_format, level=logging.DEBUG)
 
+    # Get our parameters for mongodb
+    if options.dbtype == 'mongodb':
+        username = getpass.getuser()
+        print 'MongoDB Connection Information (Empty defaults to localhost/27017)'
+        
+        args = {}
+        args['host'] = raw_input('Host: ')
+        args['port'] = raw_input('Port: ')
+        
+        # Import our mongo adapter
+        import adapters.mongodb as adapter
+        
     # Get our parameters for pgsql
     if options.dbtype == 'pgsql':
         username = getpass.getuser()
@@ -108,6 +120,29 @@ def main():
         # Import our pgsql adapter
         import adapters.pgsql as adapter
 
+    # Get our parameters for pgsql
+    if options.dbtype == 'pgsqlkv':
+        username = getpass.getuser()
+        print 'PostgreSQL Connection Information (Empty defaults to localhost/5432/%s/%s)' % (username,username)
+        
+        args = {}
+        args['host'] = raw_input('Host: ')
+        args['port'] = raw_input('Port: ')
+        args['name'] = raw_input('Database: ')
+        if not args['name']:
+            args['name'] = username
+        args['user'] = raw_input('User: ')
+        if not args['user']:
+            args['user'] = username
+        args['password'] = getpass.getpass('Password: ')
+    
+        for arg in args:
+            if not args[arg]:
+                args[arg] = None
+
+        # Import our pgsql adapter
+        import adapters.pgsqlkv as adapter
+
     if options.load:
         args['csvfile'] = options.data
         bid = core.bench.start('Load Test')
@@ -115,7 +150,7 @@ def main():
             core.bench.end(bid)
             print 'Load successful:'
             result = core.bench.get()
-            print core.bench.aggregate(result)
+            print core.bench.aggregate([result])
             
     # Create our sub-processes
     if options.bench:
