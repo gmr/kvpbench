@@ -7,86 +7,117 @@ import hashlib
 import json
 import logging
 import psycopg2
+import psycopg2.extensions
 import random
+import multiprocessing
 import time
 
-def connect(host, port, user, name, password):
+class Benchmark(multiprocessing.Process):
 
-    if not host:
-        host = 'localhost'
-    if not port:
-        port = 5432
+    def __init__(self, host, port, user, name, password, keys = None, q = None):
 
-    dsn = "host='%s' port=%i user='%s' dbname='%s'" % (host, int(port), user, name)
-    if password:
-        dsn = "%s password='%s'" % (dsn, password)
+        super(self.__class__, self).__init__()
+        self.keys = keys
 
-    pgsql = psycopg2.connect(dsn)
-    pgsql.set_isolation_level(0)
-    cursor = pgsql.cursor()
-    return cursor
+        # Database connection settings
+        if host:
+            self.host = host
+        else:
+            self.host = 'localhost'
 
-def bench(host, port, user, name, password, keys):
+        if port:
+            self.port = port
+        else:
+            self.port = 5432
 
-    cursor = connect(host, port, user, name, password)
+        self.user = user
+        self.dbname = name
+        self.password = password
+        self.cursor = None
 
-    select = "SELECT * FROM kvpbench_kv WHERE pkey = %%(pkey)s"
-    update = "UPDATE kvpbench_kv SET value = %%(value)s WHERE pkey = %%(pkey)s"
-    delete = "DELETE FROM kvpbench_kv WHERE pkey = %%(pkey)s"
+        # Connect to the database
+        self.connect()
 
-    logging.info('Starting Random Workload')
-    bid = core.bench.start('Random Workload')
-    for key in keys:
+        # Define our work queue
+        self.q = q
+
+    def connect(self):
+
+        dsn = "host='%s' port=%i user='%s' dbname='%s'" % (self.host, int(self.port), self.user, self.dbname)
+        if self.password:
+            dsn = "%s password='%s'" % (dsn, self.password)
+
+        logging.info('Connecting to the database')
+        self.pgsql = psycopg2.connect(dsn)
+        self.pgsql.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+        self.cursor = self.pgsql.cursor()
+
+    def run(self):
+
+        select = "SELECT value FROM kvpbench_kv WHERE pkey = '%s'"
+        update = "UPDATE kvpbench_kv SET value = %(value)s WHERE pkey = %(pkey)s"
+
+        logging.info('Starting Random Workload')
+        bid = core.bench.start('Random Workload')
+        failed = 0
+        for key in self.keys:
+            try:
+                x = random.randint(0,100)
+                if x < 75:
+                    sql = select % key
+                    self.cursor.execute(sql)
+                    if not self.cursor.rowcount:
+                        failed += 1
+                        break
+                elif x > 74:
+                    self.cursor.execute(select % key)
+                    record = self.cursor.fetchone()
+                    if not record:
+                        failed += 1
+                    else:
+                        value = json.loads(record[0])
+                        value['dateDecision'] = '%s KVPUPDATE' % value['dateDecision']
+                        self.cursor.execute(update, {'pkey': key, 'value': json.dumps(value)})
+                        if not self.cursor.rowcount:
+                            failed += 1
+            except Exception, e:
+                logging.error('Exception Received: %s' % e)
+        core.bench.end(bid)
+        logging.info('Random Workload Failed Queries: %i' % failed)
+        self.q.put(core.bench.get())
+
+    def load(self, csvfile):
+
+        # Try and load the datafile
+        csv = core.data.load_csv(csvfile)
+
         try:
-            x = random.randint(0,100)
-            if x < 50:
-                record = cursor.execute(select, {'pkey': key})
-            elif x > 49 and x < 91:
-                record = cursor.execute(select, {'pkey': key})
-                value = json.loads(record['value'])
-                record['dateDecision'] = '%s KVPUPDATE' % record['dateDecision']
-                cursor.execute(update % {'pkey': key, 'value': json.dumps(record)})
-            elif x > 90:
-                record = cursor.execute(delete, {'pkey': key})
-        except Exception, e:
-            logging.error('Exception Received: %s' % e)
-    core.bench.end(bid)
-    return core.bench.get()
+            self.cursor.execute('SELECT * FROM kvpbench_kv LIMIT 1')
+            if self.cursor.rowcount:
+                logging.info('Truncating previous data')
+                self.cursor.execute('TRUNCATE kvpbench_kv')
+        except psycopg2.ProgrammingError:
 
+            # Create the table
+            logging.info('Creating table from scratch')
+            sql = 'CREATE TABLE kvpbench_kv ( pkey text primary key, value text );'
+            logging.debug(sql)
+            self.cursor.execute(sql)
 
-def load(host, port, user, name, password, csvfile):
+        # Define our SQL statement
+        sql = "INSERT INTO kvpbench_kv VALUES(%(pkey)s, %(value)s)"
+        logging.info('Loading data')
 
-    # Try and load the datafile
-    csv = core.data.load_csv(csvfile)
-    
-    # Connect to the database
-    logging.info('Connecting to the database')
-    cursor = connect(host, port, user, name, password)
-    try:
-        cursor.execute('SELECT * FROM kvpbench_kv LIMIT 1')
-        if cursor.rowcount:
-            logging.info('Truncating previous data')
-            cursor.execute('TRUNCATE kvpbench_kv')
-    except psycopg2.ProgrammingError:
-        
-        # Create the table
-        logging.info('Creating table from scratch')
-        sql = 'CREATE TABLE kvpbench_kv ( pkey text primary key, value text );'
-        logging.debug(sql)
-        cursor.execute(sql)    
+        # Loop through and load the data
+        x = 0
+        try:
+            for row in csv:
+                pkey = core.data.make_key(csv.fieldnames, row)
+                self.cursor.execute(sql, {'pkey': pkey, 'value': json.dumps(row)})
+                x += 1
+        except Exception,e:
+            logging.error('Load failed: %s' % e)
+            return False
 
-    # Define our SQL statement
-    sql = "INSERT INTO kvpbench_kv VALUES(%(pkey)s, %(value)s)"
-    logging.info('Loading data')
-
-    # Loop through and load the data
-    try:
-        for row in csv:
-            pkey = core.data.make_key(csv.fieldnames, row)
-            cursor.execute(sql, {'pkey': pkey, 'value': json.dumps(row)})
-    except Exception,e:
-        logging.error('Load failed: %s' % e)
-        return False
-    
-    logging.info('Load complete')
-    return True
+        logging.info('Loaded %i rows into the database' % x)
+        return True

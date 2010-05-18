@@ -41,29 +41,29 @@ def main():
     usage = "usage: %s -d datafile [options]" % __appname__
     version_string = "%%prog %s" % __version__
     description = "Database Benchmark Utility"
-    
+
     # Create our parser and setup our command line options
     parser = optparse.OptionParser(usage=usage, version=version_string,
                                    description=description)
 
-    parser.add_option("-t", "--type", action="store", type="string", dest="dbtype", 
+    parser.add_option("-t", "--type", action="store", type="string", dest="dbtype",
                       help="Type of database to benchmark: [%s]" % ', '.join(databases))
-    
-    parser.add_option("-p", "--processes", action="store", type="int", dest="threads", 
+
+    parser.add_option("-p", "--processes", action="store", type="int", dest="threads",
                       default=1, help="Number of concurrent processes to benchmark with")
-                      
+
     parser.add_option("-b", "--bench", action="store_true", dest="bench", default=False,
-                      help="Perform the data read/write/update test")                  
-    
+                      help="Perform the data read/write/update test")
+
     parser.add_option("-l", "--load", action="store_true", dest="load", default=False,
-                      help="Perform the data load test")                  
+                      help="Perform the data load test")
 
     parser.add_option("-o", "--operations", action="store", dest="operations", type="int",
                       default=10000, help="Number of operations to test")
 
     parser.add_option("-d", "--data", action="store", dest="data",
-                      help="Specify the CSV file to load")                  
-    
+                      help="Specify the CSV file to load")
+
     # Parse our options and arguments
     options, args = parser.parse_args()
 
@@ -71,12 +71,12 @@ def main():
         print "\nError: you must specify a database type\n"
         parser.print_help()
         sys.exit()
-        
+
     if not options.bench and not options.load:
         print "\nError: you must perform a load test or bench test\n"
         parser.print_help()
         sys.exit()
-        
+
     if not options.data:
         print "\nError: you must specify a data file to load (hint: look in data dir)\n"
         parser.print_help()
@@ -89,19 +89,19 @@ def main():
     if options.dbtype == 'mongodb':
         username = getpass.getuser()
         print 'MongoDB Connection Information (Empty defaults to localhost/27017)'
-        
+
         args = {}
         args['host'] = raw_input('Host: ')
         args['port'] = raw_input('Port: ')
-        
+
         # Import our mongo adapter
         import adapters.mongodb as adapter
-        
+
     # Get our parameters for pgsql
     if options.dbtype == 'pgsql':
         username = getpass.getuser()
         print 'PostgreSQL Connection Information (Empty defaults to localhost/5432/%s/%s)' % (username,username)
-        
+
         args = {}
         args['host'] = raw_input('Host: ')
         args['port'] = raw_input('Port: ')
@@ -112,7 +112,7 @@ def main():
         if not args['user']:
             args['user'] = username
         args['password'] = getpass.getpass('Password: ')
-    
+
         for arg in args:
             if not args[arg]:
                 args[arg] = None
@@ -124,7 +124,7 @@ def main():
     if options.dbtype == 'pgsqlkv':
         username = getpass.getuser()
         print 'PostgreSQL Connection Information (Empty defaults to localhost/5432/%s/%s)' % (username,username)
-        
+
         args = {}
         args['host'] = raw_input('Host: ')
         args['port'] = raw_input('Port: ')
@@ -135,7 +135,7 @@ def main():
         if not args['user']:
             args['user'] = username
         args['password'] = getpass.getpass('Password: ')
-    
+
         for arg in args:
             if not args[arg]:
                 args[arg] = None
@@ -151,14 +151,14 @@ def main():
             print 'Load successful:'
             result = core.bench.get()
             print core.bench.aggregate([result])
-            
+
     # Create our sub-processes
     if options.bench:
-        
+
         # Get a queue for the stack of items
         q = multiprocessing.Queue()
         args['q'] = q
-        
+
         # Add our queue and keys
         args['keys'] = core.data.get_keys(options.data, options.operations)
 
@@ -171,7 +171,7 @@ def main():
             thread = adapter.Benchmark(**args)
             thread.start()
             threads.append(thread)
-            
+
         # Wait for the threads to finish
         while len(threads) > 0:
             x = 0
@@ -181,14 +181,14 @@ def main():
                     remove_thread.append(x)
             for thread in remove_thread:
                 threads.pop(thread)
-            
+
             # Sleep for a second
             time.sleep(1)
 
         # Get the timing data from the queue
         while not q.empty():
             timings.append(q.get())
-                
+
         # Print the results
         print core.bench.aggregate(timings)
 

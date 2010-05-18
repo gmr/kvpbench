@@ -14,7 +14,7 @@ class Benchmark(multiprocessing.Process):
 
     def __init__(self, host, port, keys = None, q = None):
 
-        super(self.__class__, self).__init__()    
+        super(self.__class__, self).__init__()
 
         self.keys = keys
         self.q = q
@@ -28,24 +28,24 @@ class Benchmark(multiprocessing.Process):
         if port:
             self.port = port
         else:
-            self.port = 27017         
-        
+            self.port = 27017
+
         # Connect to the database
         self.connect()
-        
+
     def connect(self):
         logging.info('Connecting to MongoDB')
         self.connection = pymongo.Connection(self.host, self.port)
         self.database = self.connection.kvpbench
         self.entries = self.database.entries
-    
+
     def run(self):
 
         logging.info('Starting Random Workload')
         bid = core.bench.start('Random Workload')
         failed = 0
         for key in self.keys:
-    
+
             try:
                 x = random.randint(0,100)
                 if x < 75:
@@ -67,13 +67,13 @@ class Benchmark(multiprocessing.Process):
         self.q.put(core.bench.get())
 
     def load(self, csvfile):
-    
+
         # Try and load the datafile
         csv = core.data.load_csv(csvfile)
-        
+
         self.database.entries.ensure_index("pkey", unique=True)
         logging.info('Loading the database from the CSV file')
-    
+
         # Loop through and load the data
         x = 0
         try:
@@ -84,6 +84,6 @@ class Benchmark(multiprocessing.Process):
         except Exception,e:
             logging.error('Load failed: %s' % e)
             return False
-    
+
         logging.info('Loaded %i rows into the database' % x)
         return True
