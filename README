@@ -1,0 +1,9 @@
+KVPBench is a simple benchmark utility to compare data loading and random reads and writes with various databases.
+
+Requirements
+------------
+Python 2.6
+
+For CouchDB support: couchdb-python
+For MongoDB support: pymongo
+For PostgreSQL support: psycopg2
