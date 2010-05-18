@@ -1,10 +1,10 @@
 import time
 import uuid
 
-_timings = {} 
+_timings = {}
 
 def start(bid, description = 'Benchmark'):
-   
+
     # Use /dev/random because uuid.uuid4 is broken on the mac using multiprocessing
     f = open('/dev/random', 'rb')
     b = f.read(16)
@@ -21,11 +21,11 @@ def end(bid):
 
 def get():
     return _timings
-    
+
 def aggregate(timings):
-    
+
     output = {}
-    
+
     for timing in timings:
         for bid in timing:
             key = timing[bid]['description']
@@ -37,7 +37,7 @@ def aggregate(timings):
             output[key]['min'] = timing[bid]['duration']
         if timing[bid]['duration'] > output[key]['max']:
             output[key]['max'] = timing[bid]['duration']
-        
+
     for category in output:
         t = sum(output[category]['durations'])
         a = t / len(output[category]['durations'])
@@ -45,6 +45,5 @@ def aggregate(timings):
         output[category]['max'] = '%.5f' % output[category]['max']
         output[category]['min'] = '%.5f' % output[category]['min']
         del(output[category]['durations'])
-        
-    return output    
-    
+
+    return output

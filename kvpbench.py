@@ -24,9 +24,9 @@ __version__ = '0.1'
 import core.bench
 import getpass
 import logging
-import multiprocessing
 import optparse
 import sys
+import multiprocessing
 import time
 
 databases = ['cassandra', 'couchdb', 'mongodb', 'pgsql', 'pgsqlkv', 'redis', 'tokyotyrant']
@@ -37,7 +37,7 @@ def bench_results(results):
     timings.append(results)
 
 def main():
-    
+
     usage = "usage: %s -d datafile [options]" % __appname__
     version_string = "%%prog %s" % __version__
     description = "Database Benchmark Utility"
@@ -144,9 +144,9 @@ def main():
         import adapters.pgsqlkv as adapter
 
     if options.load:
-        args['csvfile'] = options.data
         bid = core.bench.start('Load Test')
-        if adapter.load(**args):
+        benchmark = adapter.Benchmark(**args)
+        if benchmark.load(options.data):
             core.bench.end(bid)
             print 'Load successful:'
             result = core.bench.get()
@@ -155,31 +155,41 @@ def main():
     # Create our sub-processes
     if options.bench:
         
+        # Get a queue for the stack of items
+        q = multiprocessing.Queue()
+        args['q'] = q
+        
         # Add our queue and keys
         args['keys'] = core.data.get_keys(options.data, options.operations)
 
-        # Loop through and spawn sub-processes to do the actual benching
-        processes = []
+        # Loop through and spawn threads to do the actual benching
         logging.debug('Starting a benchmark pool with %i members' % options.threads)
-        pool = multiprocessing.Pool(processes=int(options.threads))
 
-        # Loop through and kick of the right number of async workers
-        async_result = []
+        # Loop through and run the threads
+        threads = []
         for x in xrange(0, options.threads):
-            async_result.append(pool.apply_async(adapter.bench, kwds=args, callback=bench_results))
-
-        pool.close()
-        
-        # Wait for everyone to finish
-        pool.join()    
-
-        x = 0
-        for result in async_result:
-            if result.successful():
-                x += 1
+            thread = adapter.Benchmark(**args)
+            thread.start()
+            threads.append(thread)
             
+        # Wait for the threads to finish
+        while len(threads) > 0:
+            x = 0
+            remove_thread = []
+            for thread in threads:
+                if not thread.is_alive():
+                    remove_thread.append(x)
+            for thread in remove_thread:
+                threads.pop(thread)
+            
+            # Sleep for a second
+            time.sleep(1)
+
+        # Get the timing data from the queue
+        while not q.empty():
+            timings.append(q.get())
+                
         # Print the results
-        print '%i successful parallel workers. %i workers ended in error' % (x, options.threads - x)
         print core.bench.aggregate(timings)
 
 if __name__ == '__main__':

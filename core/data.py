@@ -9,9 +9,9 @@ def load_csv(csvfile):
     return f
     
 def make_key(fields, data):
-
+    key_string = '%s:%s:%s:%s' % (data[fields[0]],data[fields[1]],data[fields[2]],data[fields[3]])
     h = hashlib.sha1()
-    h.update('%s,%s,%s,%s' % (data[fields[0]],data[fields[1]],data[fields[2]],data[fields[3]]))
+    h.update(key_string)
     return h.hexdigest()
     
 def get_keys(csvfile, size):
