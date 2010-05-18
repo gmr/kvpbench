@@ -21,7 +21,7 @@ __date__    = "2010-05-17"
 __appname__ = 'kvpbench.py'
 __version__ = '0.1'
 
-import csv
+import core.bench
 import getpass
 import logging
 import multiprocessing
@@ -75,25 +75,41 @@ def main():
         parser.print_help()
         sys.exit()
 
+    log_format = "%(asctime)-15s %(message)s"
+    logging.basicConfig(format=log_format, level=logging.DEBUG)
+
     # Get our parameters for pgsql
     if options.dbtype == 'pgsql':
-        print 'PostgreSQL Connection Information'
+        username = getpass.getuser()
+        print 'PostgreSQL Connection Information (Empty defaults to localhost/5432/%s/%s)' % (username,username)
         
         args = {}
         args['host'] = raw_input('Host: ')
         args['port'] = raw_input('Port: ')
         args['name'] = raw_input('Database: ')
+        if not args['name']:
+            args['name'] = username
         args['user'] = raw_input('User: ')
+        if not args['user']:
+            args['user'] = username
         args['password'] = getpass.getpass('Password: ')
+    
+        for arg in args:
+            if not args[arg]:
+                args[arg] = None
 
         # Import our pgsql adapter
         import adapters.pgsql as adapter
 
     if options.load:
         args['csvfile'] = options.data
-        adapter.load(**args)
-
-
+        bid = core.bench.start('Load Test')
+        if adapter.load(**args):
+            core.bench.end(bid)
+            print 'Load successful:'
+            result = core.bench.get()
+            print core.bench.aggregate(result)
+            
     # Create our sub-processes
     if options.bench:
 
