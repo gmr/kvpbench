@@ -1,10 +1,9 @@
 """
-CouchDB Benchmark Module
+Voldemort Benchmark Module
 """
 
 import core.data
-import hashlib
-import httplib2
+import drivers.voldemort
 import json
 import logging
 import multiprocessing
@@ -27,16 +26,18 @@ class Benchmark(multiprocessing.Process):
             self.host = 'localhost'
 
         if port:
-            self.port = port
+            self.port = int(port)
         else:
-            self.port = 5984
-
-        self.base_url = 'http://%s:%i/kvpbench/' % (self.host, int(self.port))
+            self.port = 6666
+            
+        url = 'ftp://%s:%i' % (self.host, int(self.port))
+        logging.info('Connecting to Voldemort')
+        self.voldemort = drivers.voldemort.Voldemort(url)
+        self.store = self.voldemort.get_store('test')
 
     def run(self):
 
         logging.info('Starting Random Workload')
-        http = httplib2.Http()
         bid = core.bench.start('Random Workload')
         failed = 0
         for key in self.keys:
@@ -48,14 +49,11 @@ class Benchmark(multiprocessing.Process):
                         print value
                         failed += 1
                 elif x > 74:
-                    url = '%s%s' % (self.base_url, key)
-                    response, content = http.request(url, 'GET')
-                    if response['status'] == '200':
-                        record = json.loads(content)
+                    value, version = self.store.get(key)
+                    if value:
+                        record = json.loads(value)
                         record['dateDecision'] = '%s KVPUPDATE' % record['dateDecision']
-                        response, content = http.request(url, 'PUT', body=json.dumps(record))
-                        if response['status'] not in ['201', '409']:
-                            failed += 1
+                        self.store.put(key, json.dumps(record))
                     else:
                         failed += 1
                     pass
@@ -68,28 +66,16 @@ class Benchmark(multiprocessing.Process):
     def load(self, csvfile):
 
         # Try and load the datafile
-        csv = core.data.load_csv(csvfile)
-
-        logging.info('Making sure we have a database defined')
-        http = httplib2.Http()
-        response, content = http.request(self.base_url, 'PUT')
-        if response['status'] != '201':
-            e = json.loads(content)
-            if e['error'] != 'file_exists':
-                logging.error('Load failed: %s' % content)
-                return False
-
         logging.info('Loading the database from the CSV file')
+        csv = core.data.load_csv(csvfile)
 
         # Loop through and load the data
         x = 0
         try:
             for row in csv:
                 pkey = core.data.make_key(csv.fieldnames, row)
-                url = '%s%s' % (self.base_url, pkey)
-                response, content = http.request(url, 'PUT', body=json.dumps(row))
-                if response['status'] != '201':
-                    x += 1
+                self.store.put(pkey, json.dumps(row))
+                x += 1
         except Exception, e:
             logging.error('Exception Received: %s' % e)
             return False
