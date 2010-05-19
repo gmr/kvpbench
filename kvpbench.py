@@ -144,7 +144,7 @@ def main():
         # Import our pgsql adapter
         import adapters.pgsql as adapter
 
-    # Get our parameters for pgsql
+    # Get our parameters for pgsqlkv
     if options.dbtype == 'pgsqlkv':
         username = getpass.getuser()
         print 'PostgreSQL Connection Information (Empty defaults to localhost/5432/%s/%s)' % (username,username)
@@ -166,6 +166,19 @@ def main():
 
         # Import our pgsql adapter
         import adapters.pgsqlkv as adapter
+
+    # Get our parameters for redis
+    if options.dbtype == 'redis':
+        username = getpass.getuser()
+        print 'Redis Connection Information (Empty defaults to localhost:6379)'
+
+        args = {}
+        args['host'] = raw_input('Host: ')
+        args['port'] = raw_input('Port: ')
+
+        # Import our mongo adapter
+        import adapters.kvpredis as adapter
+
         
     # Get our parameters for voldemort
     if options.dbtype == 'voldemort':
