@@ -179,7 +179,18 @@ def main():
         # Import our mongo adapter
         import adapters.kvpredis as adapter
 
-        
+    # Get our parameters for redis
+    if options.dbtype == 'tokyotyrant':
+        username = getpass.getuser()
+        print 'Tokyo Tyrant Connection Information (Empty defaults to localhost:1978)'
+
+        args = {}
+        args['host'] = raw_input('Host: ')
+        args['port'] = raw_input('Port: ')
+
+        # Import our mongo adapter
+        import adapters.tokyotyrant as adapter
+                
     # Get our parameters for voldemort
     if options.dbtype == 'voldemort':
         username = getpass.getuser()
