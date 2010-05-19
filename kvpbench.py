@@ -85,6 +85,17 @@ def main():
     log_format = "%(asctime)-15s %(message)s"
     logging.basicConfig(format=log_format, level=logging.DEBUG)
 
+    # Get our parameters for cassandra
+    if options.dbtype == 'cassandra':
+        username = getpass.getuser()
+        print 'Cassandra Connection Information (Empty defaults to localhost:9160)'
+
+        args = {}
+        args['host'] = raw_input('Host: ')
+        args['port'] = raw_input('Port: ')
+
+        # Import our mongo adapter
+        import adapters.cassandra as adapter
 
     # Get our parameters for couchdb
     if options.dbtype == 'couchdb':
