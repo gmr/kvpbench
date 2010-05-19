@@ -9,6 +9,6 @@ For Cassandra support:
 For CouchDB support: httplib2
 For MongoDB support: pymongo
 For PostgreSQL support: psycopg2
-For Project Voldemort support: 
+For Project Voldemort support: voldemort_client (http://github.com/etrepum/voldemort_client)
 For Redis support:
 For Tokyo Tyrant support:

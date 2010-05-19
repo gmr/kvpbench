@@ -29,7 +29,7 @@ import sys
 import multiprocessing
 import time
 
-databases = ['cassandra', 'couchdb', 'mongodb', 'pgsql', 'pgsqlkv', 'redis', 'tokyotyrant']
+databases = ['cassandra', 'couchdb', 'mongodb', 'pgsql', 'pgsqlkv', 'prjvoldemort', 'redis', 'tokyotyrant']
 timings = []
 
 def bench_results(results):
@@ -155,6 +155,18 @@ def main():
 
         # Import our pgsql adapter
         import adapters.pgsqlkv as adapter
+        
+    # Get our parameters for voldemort
+    if options.dbtype == 'prjvoldemort':
+        username = getpass.getuser()
+        print 'Voldemort Connection Information (Empty defaults to localhost:6666)'
+
+        args = {}
+        args['host'] = raw_input('Host: ')
+        args['port'] = raw_input('Port: ')
+
+        # Import our voldemort adapter
+        import adapters.prjvoldemort as adapter        
 
     if options.load:
         bid = core.bench.start('Load Test')
