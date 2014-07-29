@@ -5,13 +5,13 @@ Requirements
 
 Python 2.6
 
-For Cassandra support: lazyboy
-For CouchDB support: httplib2
-For MongoDB support: pymongo
-For PostgreSQL support: psycopg2
-For Project Voldemort support: Bundled Voldemort client by Jeff Darcy)
-For Redis support: official redis driver
-For Tokyo Tyrant support: pytyrant
+- For Cassandra support: lazyboy
+- For CouchDB support: httplib2
+- For MongoDB support: pymongo
+- For PostgreSQL support: psycopg2
+- For Project Voldemort support: Bundled Voldemort client by Jeff Darcy)
+- For Redis support: official redis driver
+- For Tokyo Tyrant support: pytyrant
 
 License
 -------
